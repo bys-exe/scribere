@@ -12,6 +12,7 @@
 // defined
 
 #define CTRL_KEY(k) ((k) & 0x1f) // ctrl key shorthand
+#define SCRIBERE_VERSION "0.0.1"
 
 // data
 
@@ -122,26 +123,64 @@ struct abuf // this will let us do one single big write instead of multiple writ
 };
 #define ABUF_INIT {NULL, 0}
 
+void abAppend(struct abuf *ab, const char *s, int len) // dynamically reallocates the no of bytes required after appending string
+{
+    char *new = realloc(ab->b, ab->len + len);
+    if (new == NULL)
+        return;
+    memcpy(&new[ab->len], s, len);
+    ab->b = new;
+    ab->len += len;
+}
+void abFree(struct abuf *ab) // it deallocates the dynamic memory used by abuf
+{
+    free(ab->b);
+}
+
 // output
 
-void editorDrawRows() // display ~ to indicate lines which arent being used
+void editorDrawRows(struct abuf *ab) // display ~ on each line to indicate lines which arent being used
 {
     int y;
     for (y = 0; y < E.screenrows; y++)
     {
-        write(STDOUT_FILENO, "~", 1);
+        if (y == E.screenrows / 3)
+        {
+            char welcome[80];
+            int welcomelen = snprintf(welcome, sizeof(welcome), "Scribere editor -- v%s", SCRIBERE_VERSION); // welcome text
+            if (welcomelen > E.screencols)
+                welcomelen = E.screencols;                 // shrink welcome text if screen size is not big enough
+            int padding = (E.screencols - welcomelen) / 2; // this is how to get the centre value to centre text
+            if (padding)
+            {
+                abAppend(ab, "~", 1);
+                padding--;
+            }
+            while (padding--)
+                abAppend(ab, " ", 1);
+            abAppend(ab, welcome, welcomelen);
+        }
+        else
+        {
+            abAppend(ab, "~", 1);
+        }
+        abAppend(ab, "\x1b[K", 3); // erases part of line
         if (y < E.screenrows - 1)
         {
-            write(STDOUT_FILENO, "\r\n", 2);
+            abAppend(ab, "\r\n", 2);
         }
     }
 }
 void editorRefreshScreen() // clearing the screen (2 represents clearing the whole screen in below line)
 {
-    write(STDOUT_FILENO, "\x1b[2J", 4); // \x1b is escape character (1 byte), [ 2 J are 1 byte each respectively
-    write(STDOUT_FILENO, "\x1b[H", 3);  // starts the cursor from top left corner
-    editorDrawRows();
-    write(STDOUT_FILENO, "\x1b[H", 3);
+    struct abuf ab = ABUF_INIT;
+    abAppend(&ab, "\x1b[?25l", 6); // hide cursor before refreshing (l is hide cursor)
+    abAppend(&ab, "\x1b[H", 3);    // starts the cursor from top left corner
+    editorDrawRows(&ab);
+    abAppend(&ab, "\x1b[H", 3);
+    abAppend(&ab, "\x1b[?25h", 6); // show cursor since refreshing is done (h is show cursor)
+    write(STDOUT_FILENO, ab.b, ab.len);
+    abFree(&ab);
 }
 
 // input
