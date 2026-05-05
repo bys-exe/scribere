@@ -18,7 +18,11 @@ enum editorKey
     ARROW_LEFT = 1000, // gave it a huge value which wont conflict ordinary keypresses
     ARROW_RIGHT,
     ARROW_UP,
-    ARROW_DOWN
+    ARROW_DOWN,
+    HOME_KEY,
+    END_KEY,
+    PAGE_UP,
+    PAGE_DOWN
 };
 
 // data
@@ -79,16 +83,56 @@ int editorReadKey() // read the keypress from user
             return '\x1b';
         if (seq[0] == '[')
         {
+            if (seq[1] >= '0' && seq[1] <= '9')
+            {
+                if (read(STDIN_FILENO, &seq[2], 1) != 1)
+                    return '\x1b';
+                if (seq[2] == '~')
+                {
+                    switch (seq[1])
+                    {
+                    case '1':
+                        return HOME_KEY;
+                    case '4':
+                        return END_KEY;
+                    case '5': // [5 is page up
+                        return PAGE_UP;
+                    case '6': // [6 is page down
+                        return PAGE_DOWN;
+                    case '7':
+                        return HOME_KEY;
+                    case '8':
+                        return END_KEY;
+                    }
+                }
+            }
+            else
+            {
+                switch (seq[1])
+                {
+                case 'A': // A is up arrow key
+                    return ARROW_UP;
+                case 'B': // B is down arrow key
+                    return ARROW_DOWN;
+                case 'C': // C is right arrow key
+                    return ARROW_RIGHT;
+                case 'D': // D is left arrow key
+                    return ARROW_LEFT;
+                case 'H':
+                    return HOME_KEY;
+                case 'F':
+                    return END_KEY;
+                }
+            }
+        }
+        else if (seq[0] == '0')
+        {
             switch (seq[1])
             {
-            case 'A': // up arrow key
-                return ARROW_UP;
-            case 'B': // down arrow key
-                return ARROW_DOWN;
-            case 'C': // right arrow key
-                return ARROW_RIGHT;
-            case 'D': // left arrow key
-                return ARROW_LEFT;
+            case 'H':
+                return HOME_KEY;
+            case 'F':
+                return END_KEY;
             }
         }
         return '\x1b';
@@ -229,7 +273,7 @@ void editorMoveCursor(int key)
     switch (key)
     {
     case ARROW_LEFT:
-        if (E.cx != 0)
+        if (E.cx != 0) // prevents from cursor going out of screen
         {
             E.cx--;
         }
@@ -265,7 +309,20 @@ void editorProcessKeypress() // reads the keypress then handles it
         write(STDIN_FILENO, "\x1b[H", 3);  // starts the cursor from top left corner
         exit(0);
         break;
-
+    case HOME_KEY:
+        E.cx = 0;
+        break;
+    case END_KEY:
+        E.cx = E.screencols - 1;
+        break;
+    case PAGE_UP:
+    case PAGE_DOWN:
+    {
+        int times = E.screenrows;
+        while (times--)
+            editorMoveCursor(c == PAGE_UP ? ARROW_UP : ARROW_DOWN);
+    }
+    break;
     case ARROW_UP:
     case ARROW_DOWN:
     case ARROW_LEFT:
