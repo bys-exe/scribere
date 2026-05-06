@@ -1,11 +1,16 @@
 // header files
 
+#define _DEFAULT_SOURCE
+#define _BSD_SOURCE
+#define GNU_SOURCE
+
 #include <ctype.h>
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/ioctl.h>
+#include <sys/types.h>
 #include <termios.h>
 #include <unistd.h>
 
@@ -28,11 +33,19 @@ enum editorKey
 
 // data
 
+typedef struct erow // editor row
+{
+    int size;
+    char *chars;
+} erow;
+
 struct editorConfig
 {
     int cx, cy;
     int screenrows;
     int screencols;
+    int numrows;
+    erow row;
     struct termios orig_termios;
 };
 struct editorConfig E;
@@ -190,12 +203,30 @@ int getWindowSize(int *rows, int *cols) // gets windows size
         return 0;
     }
 }
-void initEditor()
+
+// file i/o
+
+void editorOpen(char *filename)
 {
-    E.cx = 0;                                              // row pos is o
-    E.cy = 0;                                              // col pos is 0
-    if (getWindowSize(&E.screenrows, &E.screencols) == -1) // error handling
-        die("getWindowSize");
+    FILE *fp = fopen(filename, "r"); // opening a file into the editor
+    if (!fp)
+        die("fopen"); // error handling
+    char *line = NULL;
+    size_t linecap = 0;
+    ssize_t linelen;
+    linelen = getline(&line, &linecap, fp); // takes care of memory management
+    if (linelen != -1)
+    {
+        while (linelen > 0 && (line[linelen - 1] == '\n' || line[linelen - 1] == '\r'))
+            linelen--;
+        E.row.size = linelen;
+        E.row.chars = malloc(linelen + 1); // +1 to hold \0
+        memcpy(E.row.chars, line, linelen);
+        E.row.chars[linelen] = '\0';
+        E.numrows = 1; // to indicate erow now contains a line that should be displayed
+    }
+    free(line);
+    fclose(fp);
 }
 
 // append buffer
@@ -228,25 +259,35 @@ void editorDrawRows(struct abuf *ab) // display ~ on each line to indicate lines
     int y;
     for (y = 0; y < E.screenrows; y++)
     {
-        if (y == E.screenrows / 3)
+        if (y >= E.numrows)
         {
-            char welcome[80];
-            int welcomelen = snprintf(welcome, sizeof(welcome), "Scribere editor -- v%s", SCRIBERE_VERSION); // welcome text
-            if (welcomelen > E.screencols)
-                welcomelen = E.screencols;                 // shrink welcome text if screen size is not big enough
-            int padding = (E.screencols - welcomelen) / 2; // this is how to get the centre value to centre text
-            if (padding)
+            if (E.numrows == 0 && y == E.screenrows / 3)
+            {
+                char welcome[80];
+                int welcomelen = snprintf(welcome, sizeof(welcome), "Scribere editor -- v%s", SCRIBERE_VERSION); // welcome text
+                if (welcomelen > E.screencols)
+                    welcomelen = E.screencols;                 // shrink welcome text if screen size is not big enough
+                int padding = (E.screencols - welcomelen) / 2; // this is how to get the centre value to centre text
+                if (padding)
+                {
+                    abAppend(ab, "~", 1);
+                    padding--;
+                }
+                while (padding--)
+                    abAppend(ab, " ", 1);
+                abAppend(ab, welcome, welcomelen);
+            }
+            else
             {
                 abAppend(ab, "~", 1);
-                padding--;
             }
-            while (padding--)
-                abAppend(ab, " ", 1);
-            abAppend(ab, welcome, welcomelen);
         }
         else
         {
-            abAppend(ab, "~", 1);
+            int len = E.row.size;
+            if (len > E.screencols)
+                len = E.screencols;
+            abAppend(ab, E.row.chars, len);
         }
         abAppend(ab, "\x1b[K", 3); // erases part of line
         if (y < E.screenrows - 1)
@@ -337,10 +378,23 @@ void editorProcessKeypress() // reads the keypress then handles it
 
 // init (this happens first after boot/launching)
 
-int main()
+void initEditor()
+{
+    E.cx = 0; // row pos is o
+    E.cy = 0; // col pos is 0
+    E.numrows = 0;
+    if (getWindowSize(&E.screenrows, &E.screencols) == -1) // error handling
+        die("getWindowSize");
+}
+
+int main(int argc, char *argv[])
 {
     enableRawMode();
     initEditor();
+    if (argc >= 2)
+    {
+        editorOpen(argv[1]);
+    }
     while (1)
     {
         editorRefreshScreen();
