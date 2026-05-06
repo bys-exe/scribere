@@ -45,7 +45,7 @@ struct editorConfig
     int screenrows;
     int screencols;
     int numrows;
-    erow row;
+    erow *row;
     struct termios orig_termios;
 };
 struct editorConfig E;
@@ -204,6 +204,19 @@ int getWindowSize(int *rows, int *cols) // gets windows size
     }
 }
 
+// row operations
+
+void editorAppendRow(char *s, size_t len) // lets us read multiple lines
+{
+    E.row = realloc(E.row, sizeof(erow) * (E.numrows + 1));
+    int at = E.numrows;
+    E.row[at].size = len;
+    E.row[at].chars = malloc(len + 1); // +1 to hold \0
+    memcpy(E.row[at].chars, s, len);
+    E.row[at].chars[len] = '\0';
+    E.numrows++; // to indicate erow now contains a line that should be displayed
+}
+
 // file i/o
 
 void editorOpen(char *filename)
@@ -214,16 +227,11 @@ void editorOpen(char *filename)
     char *line = NULL;
     size_t linecap = 0;
     ssize_t linelen;
-    linelen = getline(&line, &linecap, fp); // takes care of memory management
-    if (linelen != -1)
+    while ((linelen = getline(&line, &linecap, fp)) != -1) // getLine takes care of the memory management
     {
         while (linelen > 0 && (line[linelen - 1] == '\n' || line[linelen - 1] == '\r'))
             linelen--;
-        E.row.size = linelen;
-        E.row.chars = malloc(linelen + 1); // +1 to hold \0
-        memcpy(E.row.chars, line, linelen);
-        E.row.chars[linelen] = '\0';
-        E.numrows = 1; // to indicate erow now contains a line that should be displayed
+        editorAppendRow(line, linelen);
     }
     free(line);
     fclose(fp);
@@ -284,10 +292,10 @@ void editorDrawRows(struct abuf *ab) // display ~ on each line to indicate lines
         }
         else
         {
-            int len = E.row.size;
+            int len = E.row[y].size;
             if (len > E.screencols)
                 len = E.screencols;
-            abAppend(ab, E.row.chars, len);
+            abAppend(ab, E.row[y].chars, len);
         }
         abAppend(ab, "\x1b[K", 3); // erases part of line
         if (y < E.screenrows - 1)
@@ -383,6 +391,7 @@ void initEditor()
     E.cx = 0; // row pos is o
     E.cy = 0; // col pos is 0
     E.numrows = 0;
+    E.row = NULL;
     if (getWindowSize(&E.screenrows, &E.screencols) == -1) // error handling
         die("getWindowSize");
 }
