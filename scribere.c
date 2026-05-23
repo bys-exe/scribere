@@ -21,7 +21,8 @@
 
 #define CTRL_KEY(k) ((k) & 0x1f) // ctrl key shorthand
 #define SCRIBERE_VERSION "0.0.1"
-#define KILO_TAB_STOP 8
+#define SCRIBERE_TAB_STOP 8
+#define SCRIBERE_QUIT_TIMES 3
 enum editorKey
 {
     BACKSPACE = 127,
@@ -56,12 +57,17 @@ struct editorConfig
     int screencols;
     int numrows;
     erow *row;
+    int dirty; // to find any unsaved changes (dirty flags)
     char *filename;
     char statusmsg[80];
-    time_t statusmsg_time;
+    time_t statusmsg_time; // cooldown before status msg disappears
     struct termios orig_termios;
 };
 struct editorConfig E;
+
+// prototypes (just to let the compiler know the function exists later to stop throwing errors)
+
+void editorSetStatusMessage(const char *fmt, ...);
 
 // terminal
 
@@ -226,7 +232,7 @@ int editorRowCxToRx(erow *row, int cx)
     for (j = 0; j < cx; j++)
     {
         if (row->chars[j] == '\t')
-            rx += (KILO_TAB_STOP - 1) - (rx % KILO_TAB_STOP);
+            rx += (SCRIBERE_TAB_STOP - 1) - (rx % SCRIBERE_TAB_STOP);
         rx++;
     }
     return rx;
@@ -241,15 +247,15 @@ void editorUpdateRow(erow *row)
         if (row->chars[j] == '\t')
             tabs++;
     }
-    free(row->render);                                                // prevents memory leak (frees old memory)
-    row->render = malloc(row->size + tabs * (KILO_TAB_STOP - 1) + 1); // +1 for the '\0' operator
+    free(row->render);                                                    // prevents memory leak (frees old memory)
+    row->render = malloc(row->size + tabs * (SCRIBERE_TAB_STOP - 1) + 1); // +1 for the '\0' operator
     int idx = 0;
     for (j = 0; j < row->size; j++)
     {
         if (row->chars[j] == '\t')
         {
             row->render[idx++] = ' ';
-            while (idx % KILO_TAB_STOP != 0)
+            while (idx % SCRIBERE_TAB_STOP != 0)
                 row->render[idx++] = ' ';
         }
         else
@@ -273,6 +279,7 @@ void editorAppendRow(char *s, size_t len) // lets us read multiple lines
     E.row[at].render = NULL;
     editorUpdateRow(&E.row[at]);
     E.numrows++; // to indicate erow now contains a line that should be displayed
+    E.dirty++;   // to indicate file had changes
 }
 void editorRowInsertChar(erow *row, int at, int c)
 {
@@ -283,6 +290,7 @@ void editorRowInsertChar(erow *row, int at, int c)
     row->size++;
     row->chars[at] = c;
     editorUpdateRow(row);
+    E.dirty++; // to indicate file had changes
 }
 
 // editor operations
@@ -335,6 +343,7 @@ void editorOpen(char *filename)
     }
     free(line);
     fclose(fp);
+    E.dirty = 0;
 }
 
 void editorSave()
@@ -352,6 +361,7 @@ void editorSave()
             {
                 close(fd);
                 free(buf);
+                E.dirty = 0;
                 editorSetStatusMessage("%d bytes written to disk", len);
                 return;
             }
@@ -458,8 +468,8 @@ void editorDrawStatusBar(struct abuf *ab)
 {
     abAppend(ab, "\x1b[7m", 4);
     char status[80], rstatus[80];
-    int len = snprintf(status, sizeof(status), "%.20s - %d lines", E.filename ? E.filename : "[No filename]", E.numrows); // filename and total lines
-    int rlen = snprintf(rstatus, sizeof(rstatus), "%d/%d", E.cy + 1, E.numrows);                                          // which line we are currently on
+    int len = snprintf(status, sizeof(status), "%.20s - %d lines %s", E.filename ? E.filename : "[No filename]", E.numrows, E.dirty ? "(modified)" : "");
+    int rlen = snprintf(rstatus, sizeof(rstatus), "%d/%d", E.cy + 1, E.numrows); // which line we are currently on
     if (len > E.screencols)
         len = E.screencols;
     abAppend(ab, status, len);
@@ -564,6 +574,7 @@ void editorMoveCursor(int key)
 
 void editorProcessKeypress() // reads the keypress then handles it
 {
+    static int quit_times = SCRIBERE_QUIT_TIMES;
     int c = editorReadKey();
     switch (c)
     {
@@ -571,6 +582,12 @@ void editorProcessKeypress() // reads the keypress then handles it
         // wip
         break;
     case CTRL_KEY('q'):
+        if (E.dirty && quit_times > 0)
+        {
+            editorSetStatusMessage("WARNING! File has unsaved changes. Press Ctrl-Q %d more times to quit.", quit_times);
+            quit_times--;
+            return;
+        }
         write(STDIN_FILENO, "\x1b[2J", 4); // clear screen
         write(STDIN_FILENO, "\x1b[H", 3);  // starts the cursor from top left corner
         exit(0);
@@ -621,6 +638,7 @@ void editorProcessKeypress() // reads the keypress then handles it
         editorInsertChar(c);
         break;
     }
+    quit_times = SCRIBERE_QUIT_TIMES;
 }
 
 // init (this happens first after boot/launching)
@@ -634,6 +652,7 @@ void initEditor()
     E.coloff = 0;
     E.numrows = 0;
     E.row = NULL;
+    E.dirty = 0;
     E.filename = NULL; // so that its empty when no file is open
     E.statusmsg[0] = '\0';
     E.statusmsg_time = 0;
