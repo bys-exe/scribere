@@ -6,6 +6,7 @@
 
 #include <ctype.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <stdio.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -23,6 +24,7 @@
 #define KILO_TAB_STOP 8
 enum editorKey
 {
+    BACKSPACE = 127,
     ARROW_LEFT = 1000, // gave it a huge value which wont conflict ordinary keypresses
     ARROW_RIGHT,
     ARROW_UP,
@@ -272,9 +274,49 @@ void editorAppendRow(char *s, size_t len) // lets us read multiple lines
     editorUpdateRow(&E.row[at]);
     E.numrows++; // to indicate erow now contains a line that should be displayed
 }
+void editorRowInsertChar(erow *row, int at, int c)
+{
+    if (at < 0 || at > row->size)
+        at = row->size;
+    row->chars = realloc(row->chars, row->size + 2);                   // +2 cuz one is for the character and the other is '\0'
+    memmove(&row->chars[at + 1], &row->chars[at], row->size - at + 1); // move the text to the right by one byte for extra space to add our character
+    row->size++;
+    row->chars[at] = c;
+    editorUpdateRow(row);
+}
+
+// editor operations
+
+void editorInsertChar(int c)
+{
+    if (E.cy == E.numrows)
+    {
+        editorAppendRow("", 0);
+    }
+    editorRowInsertChar(&E.row[E.cy], E.cx, c);
+    E.cx++;
+}
 
 // file i/o
 
+char *editorRowsToString(int *buflen)
+{
+    int totlen = 0;
+    int j;
+    for (j = 0; j < E.numrows; j++)
+        totlen += E.row[j].size + 1;
+    *buflen = totlen;
+    char *buf = malloc(totlen);
+    char *p = buf;
+    for (j = 0; j < E.numrows; j++)
+    {
+        memcpy(p, E.row[j].chars, E.row[j].size);
+        p += E.row[j].size;
+        *p = '\n';
+        p++;
+    }
+    return buf;
+}
 void editorOpen(char *filename)
 {
     free(E.filename); // prevents leaks
@@ -293,6 +335,31 @@ void editorOpen(char *filename)
     }
     free(line);
     fclose(fp);
+}
+
+void editorSave()
+{
+    if (E.filename == NULL) // no name file (not saved)
+        return;
+    int len;
+    char *buf = editorRowsToString(&len);
+    int fd = open(E.filename, O_RDWR | O_CREAT, 0644); // 0644 are the default read and write permission
+    if (fd != 1)
+    {
+        if (ftruncate(fd, len) != -1)
+        {
+            if (write(fd, buf, len) == len)
+            {
+                close(fd);
+                free(buf);
+                editorSetStatusMessage("%d bytes written to disk", len);
+                return;
+            }
+        }
+        close(fd);
+    }
+    free(buf);
+    editorSetStatusMessage("Can't save! I/O Error: %s", strerror(errno));
 }
 
 // append buffer
@@ -500,10 +567,16 @@ void editorProcessKeypress() // reads the keypress then handles it
     int c = editorReadKey();
     switch (c)
     {
+    case '\r':
+        // wip
+        break;
     case CTRL_KEY('q'):
         write(STDIN_FILENO, "\x1b[2J", 4); // clear screen
         write(STDIN_FILENO, "\x1b[H", 3);  // starts the cursor from top left corner
         exit(0);
+        break;
+    case CTRL_KEY('s'):
+        editorSave();
         break;
     case HOME_KEY:
         E.cx = 0;
@@ -511,6 +584,11 @@ void editorProcessKeypress() // reads the keypress then handles it
     case END_KEY:
         if (E.cy < E.numrows)
             E.cx = E.row[E.cy].size;
+        break;
+    case BACKSPACE:
+    case CTRL_KEY('h'):
+    case DEL_KEY:
+        // wip
         break;
     case PAGE_UP:
     case PAGE_DOWN:
@@ -535,6 +613,12 @@ void editorProcessKeypress() // reads the keypress then handles it
     case ARROW_LEFT:
     case ARROW_RIGHT:
         editorMoveCursor(c);
+        break;
+    case CTRL_KEY('l'):
+    case '\x1b':
+        break;
+    default:
+        editorInsertChar(c);
         break;
     }
 }
@@ -566,7 +650,7 @@ int main(int argc, char *argv[])
     {
         editorOpen(argv[1]);
     }
-    editorSetStatusMessage("HELP: Ctrl-Q = quit");
+    editorSetStatusMessage("HELP: Ctrl-Q = quit | Ctrl-S = save");
     while (1)
     {
         editorRefreshScreen();
