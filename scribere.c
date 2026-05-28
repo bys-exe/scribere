@@ -21,7 +21,7 @@
 
 #define CTRL_KEY(k) ((k) & 0x1f) // ctrl key shorthand
 #define SCRIBERE_VERSION "0.0.1"
-#define SCRIBERE_TAB_STOP 8
+#define SCRIBERE_TAB_STOP 4
 #define SCRIBERE_QUIT_TIMES 3
 enum editorKey
 {
@@ -36,6 +36,11 @@ enum editorKey
     PAGE_UP,
     PAGE_DOWN
 };
+enum editorHighlight
+{
+    HL_NORMAL = 0,
+    HL_NUMBER
+};
 
 // data
 
@@ -45,6 +50,7 @@ typedef struct erow // editor row
     int rsize;
     char *chars;
     char *render; // prevents extra spaces in terminal
+    unsigned char *hl;
 } erow;
 
 struct editorConfig
@@ -225,6 +231,32 @@ int getWindowSize(int *rows, int *cols) // gets windows size
     }
 }
 
+// syntax highlighting
+
+void editorUpdateSyntax(erow *row)
+{
+    row->hl = realloc(row->hl, row->rsize);
+    memset(row->hl, HL_NORMAL, row->rsize);
+    int i;
+    for (i = 0; i < row->size; i++)
+    {
+        if (isdigit(row->render[i]))
+        {
+            row->hl[i] = HL_NUMBER;
+        }
+    }
+}
+int editorSyntaxToColor(int hl)
+{
+    switch (hl)
+    {
+    case HL_NUMBER:
+        return 31; // red
+    default:
+        return 37; // white
+    }
+}
+
 // row operations
 
 int editorRowCxToRx(erow *row, int cx)
@@ -281,6 +313,8 @@ void editorUpdateRow(erow *row)
     }
     row->render[idx] = '\0';
     row->rsize = idx;
+
+    editorUpdateSyntax(row);
 }
 
 void editorInsertRow(int at, char *s, size_t len) // lets us read multiple lines
@@ -295,6 +329,7 @@ void editorInsertRow(int at, char *s, size_t len) // lets us read multiple lines
     E.row[at].chars[len] = '\0';
     E.row[at].rsize = 0;
     E.row[at].render = NULL;
+    E.row[at].hl = NULL;
     editorUpdateRow(&E.row[at]);
     E.numrows++; // to indicate erow now contains a line that should be displayed
     E.dirty++;   // to indicate file had changes
@@ -303,6 +338,7 @@ void editorFreeRow(erow *row) // preventing memory leaks
 {
     free(row->render);
     free(row->chars);
+    free(row->hl);
 }
 void editorDelRow(int at)
 { // shifting the array
@@ -448,7 +484,7 @@ void editorSave() // no name file (not saved)
     int len;
     char *buf = editorRowsToString(&len);
     int fd = open(E.filename, O_RDWR | O_CREAT, 0644); // 0644 are the default read and write permission
-    if (fd != 1)
+    if (fd != -1)
     {
         if (ftruncate(fd, len) != -1)
         {
@@ -585,7 +621,7 @@ void editorScroll()
     }
 }
 
-void editorDrawRows(struct abuf *ab) // display ~ on each line to indicate lines which arent being used
+void editorDrawRows(struct abuf *ab)
 {
     int y;
     for (y = 0; y < E.screenrows; y++)
@@ -600,7 +636,7 @@ void editorDrawRows(struct abuf *ab) // display ~ on each line to indicate lines
                 if (welcomelen > E.screencols)
                     welcomelen = E.screencols;                 // shrink welcome text if screen size is not big enough
                 int padding = (E.screencols - welcomelen) / 2; // this is how to get the centre value to centre text
-                if (padding)
+                if (padding)                                   // display ~ on each line to indicate lines which arent being used
                 {
                     abAppend(ab, "~", 1);
                     padding--;
@@ -621,7 +657,35 @@ void editorDrawRows(struct abuf *ab) // display ~ on each line to indicate lines
                 len = 0;
             if (len > E.screencols)
                 len = E.screencols;
-            abAppend(ab, &E.row[filerow].render[E.coloff], len);
+            char *c = &E.row[filerow].render[E.coloff];
+            unsigned char *hl = &E.row[filerow].hl[E.coloff]; // points directly to whatever is displayed on screen rn and not the things outside rendering
+            int current_color = -1;
+            int j;
+            for (j = 0; j < len; j++)
+            {
+                if (hl[j] == HL_NORMAL)
+                {
+                    if (current_color != -1)
+                    {
+                        abAppend(ab, "\x1b[39m", 5); // change it back to normal
+                        current_color = -1;
+                    }
+                    abAppend(ab, &c[j], 1); // only digit will turn to red color
+                }
+                else
+                {
+                    int color = editorSyntaxToColor(hl[j]);
+                    if (color != current_color)
+                    {
+                        current_color = color;
+                        char buf[16];
+                        int clen = snprintf(buf, sizeof(buf), "\x1b[%dm", color);
+                        abAppend(ab, buf, clen);
+                    }
+                    abAppend(ab, &c[j], 1); // append normally with default color
+                }
+            }
+            abAppend(ab, "\x1b[39m", 5);
         }
         abAppend(ab, "\x1b[K", 3); // erases part of line
         abAppend(ab, "\r\n", 2);
