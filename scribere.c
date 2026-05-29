@@ -588,6 +588,15 @@ void editorInsertChar(int c)
 }
 void editorInsertNewLine()
 {
+    erow *cur = (E.cy < E.numrows) ? &E.row[E.cy] : NULL;
+    int indent = 0;
+    if (cur)
+    {
+        while (indent < cur->size && (cur->chars[indent] == ' ' || cur->chars[indent] == '\t'))
+            indent++;
+        if (E.cx < indent)
+            indent = E.cx;
+    }
     if (E.cx == 0)
     {
         editorInsertRow(E.cy, "", 0);
@@ -603,6 +612,15 @@ void editorInsertNewLine()
     }
     E.cy++;
     E.cx = 0;
+    if (indent > 0)
+    {
+        erow *prev = &E.row[E.cy - 1];
+        for (int i = 0; i < indent; i++)
+        {
+            editorRowInsertChar(&E.row[E.cy], E.cx, prev->chars[i]);
+            E.cx++;
+        }
+    }
 }
 void editorDelChar()
 {
