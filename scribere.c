@@ -23,6 +23,7 @@
 #define SCRIBERE_VERSION "0.0.1"
 #define SCRIBERE_TAB_STOP 4
 #define SCRIBERE_QUIT_TIMES 3
+#define SCRIBERE_LINENUM_WIDTH 5
 enum editorKey
 {
     BACKSPACE = 127,
@@ -838,6 +839,11 @@ void editorDrawRows(struct abuf *ab)
         int filerow = y + E.rowoff;
         if (filerow >= E.numrows)
         {
+            char gutter[SCRIBERE_LINENUM_WIDTH + 1]; // so that left edge stays consistent
+            snprintf(gutter, sizeof(gutter), "%*s", SCRIBERE_LINENUM_WIDTH, "");
+            abAppend(ab, "\x1b[90m", 5); // gray color
+            abAppend(ab, gutter, SCRIBERE_LINENUM_WIDTH);
+            abAppend(ab, "\x1b[39m", 5); // default color
             if (E.numrows == 0 && y == E.screenrows / 3)
             {
                 char welcome[80];
@@ -861,6 +867,11 @@ void editorDrawRows(struct abuf *ab)
         }
         else
         {
+            char linenum[SCRIBERE_LINENUM_WIDTH + 1];                            // draw the line no first
+            int lnlen = snprintf(linenum, sizeof(linenum), "%4d ", filerow + 1); // + 1 so starts from 1
+            abAppend(ab, "\x1b[90m", 5);                                         // gray color
+            abAppend(ab, linenum, lnlen);
+            abAppend(ab, "\x1b[39m", 5); // default color
             int len = E.row[filerow].rsize - E.coloff;
             if (len < 0)
                 len = 0;
@@ -957,7 +968,7 @@ void editorRefreshScreen() // clearing the screen (2 represents clearing the who
     editorDrawStatusBar(&ab);
     editorDrawMessageBar(&ab);
     char buf[32];
-    snprintf(buf, sizeof(buf), "\x1b[%d;%dH", (E.cy - E.rowoff) + 1, (E.rx - E.coloff) + 1); // move cursor to position in cx and cy
+    snprintf(buf, sizeof(buf), "\x1b[%d;%dH", (E.cy - E.rowoff) + 1, (E.rx - E.coloff) + 1 + SCRIBERE_LINENUM_WIDTH); // move cursor to position in cx and cy
     abAppend(&ab, buf, strlen(buf));
     abAppend(&ab, "\x1b[?25h", 6); // show cursor since refreshing is done (h is show cursor)
     write(STDOUT_FILENO, ab.b, ab.len);
@@ -1160,7 +1171,8 @@ void initEditor()
     E.statusmsg_time = 0;
     if (getWindowSize(&E.screenrows, &E.screencols) == -1) // error handling
         die("getWindowSize");
-    E.screenrows -= 2; // no of lines to leave for displaying status bar
+    E.screenrows -= 2;                      // no of lines to leave for displaying status bar
+    E.screencols -= SCRIBERE_LINENUM_WIDTH; // no of lines to leave for no indexing
     E.syntax = NULL;
 }
 
