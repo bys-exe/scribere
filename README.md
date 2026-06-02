@@ -4,16 +4,6 @@
 
 <div align='center'> A terminal code editor which is <em><b>fast</em></b> and <em><b>lightweight</em></b></div>
 
-## Index
-
-- [Scribere](#scribere)
-- [Index](#index)
-- [Overview](#overview)
-- [Features](#features)
-- [Getting started](#getting-started)
-- [Roadmap](#roadmap)
-- [Images](#images)
-- [References](#references)
 
 ## Overview
 
