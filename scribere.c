@@ -24,6 +24,7 @@
 #define SCRIBERE_TAB_STOP 4
 #define SCRIBERE_QUIT_TIMES 3
 #define SCRIBERE_LINENUM_WIDTH 5
+#define UNDO_STACK_SIZE 1000
 enum editorKey
 {
     BACKSPACE = 127,
@@ -73,7 +74,17 @@ typedef struct erow // editor row
     unsigned char *hl;
     int hl_open_comment;
 } erow;
-
+typedef enum
+{ // for undo stack
+    ACTION_INSERT,
+    ACTION_DELETE
+} ActionType;
+typedef struct
+{
+    ActionType type;
+    int cy, cx;
+    char c;
+} UndoAction;
 struct editorConfig
 {
     int cx, cy;
@@ -90,6 +101,8 @@ struct editorConfig
     time_t statusmsg_time; // cooldown before status msg disappears
     struct editorSyntax *syntax;
     struct termios orig_termios;
+    UndoAction undo_stack[UNDO_STACK_SIZE];
+    int undo_top;
 };
 struct editorConfig E;
 
@@ -574,11 +587,22 @@ void editorRowDelChar(erow *row, int at)
     editorUpdateRow(row);
     E.dirty++;
 }
+void undoPush(ActionType type, int cy, int cx, char c)
+{
+    if (E.undo_top >= UNDO_STACK_SIZE)
+        return; // if stack is full ignore
+    E.undo_stack[E.undo_top].type = type;
+    E.undo_stack[E.undo_top].cy = cy;
+    E.undo_stack[E.undo_top].cx = cx;
+    E.undo_stack[E.undo_top].c = c;
+    E.undo_top++;
+}
 
 // editor operations
 
 void editorInsertChar(int c)
 {
+    undoPush(ACTION_INSERT, E.cy, E.cx, c); // record it first before inserting
     if (E.cy == E.numrows)
     {
         editorInsertRow(E.numrows, "", 0);
@@ -631,6 +655,7 @@ void editorDelChar()
     erow *row = &E.row[E.cy];
     if (E.cx > 0)
     {
+        undoPush(ACTION_DELETE, E.cy, E.cx - 1, row->chars[E.cx - 1]);
         editorRowDelChar(row, E.cx - 1);
         E.cx--;
     }
@@ -717,6 +742,29 @@ void editorSave() // no name file (not saved)
     }
     free(buf);
     editorSetStatusMessage("Can't save! I/O Error: %s", strerror(errno));
+}
+void editorUndo()
+{
+    if (E.undo_top == 0)
+    {
+        editorSetStatusMessage("Nothing to do.");
+        return;
+    }
+    E.undo_top--;
+    UndoAction *a = &E.undo_stack[E.undo_top];
+    if (a->type == ACTION_INSERT) // whatever we character we inserted, will get removed
+    {
+        E.cy = a->cy;
+        E.cx = a->cx;
+        editorRowDelChar(&E.row[E.cy], E.cx);
+    }
+    else // whatever we character we deleted, will get brought back
+    {
+        E.cy = a->cy;
+        E.cx = a->cx;
+        editorRowInsertChar(&E.row[E.cy], E.cx, a->c);
+    }
+    editorSetStatusMessage("Undo: %s '%c' at (%d,%d)", a->type == ACTION_INSERT ? "insert" : "delete", a->c, a->cy, a->cx);
 }
 
 // find (search function)
@@ -1121,6 +1169,9 @@ void editorProcessKeypress() // reads the keypress then handles it
     case CTRL_KEY('s'):
         editorSave();
         break;
+    case CTRL_KEY('z'):
+        editorUndo();
+        break;
     case HOME_KEY:
         E.cx = 0;
         break;
@@ -1202,7 +1253,7 @@ int main(int argc, char *argv[])
     {
         editorOpen(argv[1]);
     }
-    editorSetStatusMessage("HELP: Ctrl-Q = quit | Ctrl-S = save | Ctrl-F = find");
+    editorSetStatusMessage("HELP: Ctrl-Q = quit | Ctrl-S = save | Ctrl-F = find | Ctrl-Z = undo");
     while (1)
     {
         editorRefreshScreen();
