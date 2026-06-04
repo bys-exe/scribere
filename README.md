@@ -16,26 +16,28 @@ The syntax highlighting currently only supports c language, more soon.
 
 ## Features
 
-- You can search for <em>any specific word</em> in code
-- You can undo your changes using Ctrl-Z
-- Warning system which warns if you have any unsaved changes
-- <b>Syntax highlighting</b> so it looks like a code editor
+- You can undo your changes using Ctrl-Z.
+- You can find text within the file using Ctrl-F.
+- Warning system which warns if you have any unsaved changes.
+- <b>Syntax highlighting</b> and filetype detection so it looks like a code editor. 
+- Currently filetype detection and syntax highlighting only supports the following filetypes:- 
+  C, Python, Javascript, Go, Rust, Java, Bash, Yaml, Json, Makefile, Dockerfile, Gitignore
+  (Create an Issue if you need any other language)
+
 
 ## Getting started
 
--- wip --
+\*Work in progress\* but if you want to try it, fork the repository and run `./scribere` in the location of the directory for creating an empty file and `./scribere "file-location"` for modifying an existing file.
 
-## Roadmap
+## Goals
 
 - [ ] Allow us to copy and paste things into the terminal
-- [ ] More languages support for syntax highlighting
 
 ## Images
 
-
 ![screenshot-1](./media/screenshot-1.png)
 ![screenshot-2](./media/screenshot-2.png)
-The terminal look different from what u fork because i modified the look of my powershell terminal.
+\*The terminal might look different from screenshots because i modified the look of my powershell terminal.\*
 
 ## References
 

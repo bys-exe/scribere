@@ -106,18 +106,170 @@ struct editorConfig
 };
 struct editorConfig E;
 
-// file types (to detect which filetype we are opening)
+// file types list (to detect which filetype we are opening)
 
-char *C_HL_extensions[] = {".c", ".h", ".cpp", NULL};
-char *C_HL_keywords[] = {
-    "switch", "if", "while", "for", "break", "continue", "return", "else", "struct", "union", "typedef", "static", "enum", "class", "case",
-    "int|", "long|", "double|", "float|", "char|", "unsigned|", "signed|", "void|", NULL};
+char *C_HL_extensions[] = {".c", ".h", ".cpp", NULL};                             // c
+char *Python_HL_extensions[] = {".py", ".pyw", NULL};                             // python
+char *JS_HL_extensions[] = {".js", ".jsx", ".ts", ".tsx", ".mjs", NULL};          // javascript
+char *Go_HL_extensions[] = {".go", NULL};                                         // go
+char *Rust_HL_extensions[] = {".rs", NULL};                                       // rust
+char *Java_HL_extensions[] = {".java", NULL};                                     // java
+char *Bash_HL_extensions[] = {".sh", ".bash", ".zsh", NULL};                      // bash
+char *YAML_HL_extensions[] = {".yml", ".yaml", NULL};                             // yaml
+char *JSON_HL_extensions[] = {".json", NULL};                                     // json
+char *Makefile_HL_extensions[] = {"Makefile", "makefile", ".mk", NULL};           // makefile
+char *Docker_HL_extensions[] = {"Dockerfile", "dockerfile", ".dockerfile", NULL}; // docker
+char *Gitignore_HL_extensions[] = {".gitignore", ".env", ".editorconfig", NULL};  // gitignore
+
+// file keywords list (which keywords to highlight)
+
+char *C_HL_keywords[] = { // c
+    "switch", "if", "while", "for", "break", "continue", "return",
+    "else", "struct", "union", "typedef", "static", "enum", "class",
+    "case", "sizeof", "do", "extern", "inline", "const",
+    "int|", "long|", "double|", "float|", "char|", "unsigned|",
+    "signed|", "void|", "short|", "bool|", "size_t|", "uint8_t|",
+    "uint16_t|", "uint32_t|", "uint64_t|", "int8_t|", "int16_t|",
+    "int32_t|", "int64_t|",
+    NULL};
+char *Python_HL_keywords[] = { // python
+    "and", "as", "assert", "async", "await", "break", "class",
+    "continue", "def", "del", "elif", "else", "except", "finally",
+    "for", "from", "global", "if", "import", "in", "is", "lambda",
+    "nonlocal", "not", "or", "pass", "raise", "return", "try",
+    "while", "with", "yield",
+    "True|", "False|", "None|", "int|", "str|", "float|", "bool|",
+    "list|", "dict|", "tuple|", "set|", "bytes|", "type|",
+    NULL};
+char *JS_HL_keywords[] = { // javascript
+    "break", "case", "catch", "continue", "debugger", "default",
+    "delete", "do", "else", "finally", "for", "function", "if",
+    "in", "instanceof", "new", "return", "switch", "this", "throw",
+    "try", "typeof", "void", "while", "with", "class", "extends",
+    "import", "export", "from", "of", "async", "await", "static",
+    "yield", "super",
+    "var|", "let|", "const|", "true|", "false|", "null|",
+    "undefined|", "NaN|",
+    NULL};
+char *Go_HL_keywords[] = { // go
+    "break", "case", "chan", "continue", "default", "defer", "else",
+    "fallthrough", "for", "func", "go", "goto", "if", "import",
+    "interface", "map", "package", "range", "return", "select",
+    "struct", "switch", "type", "var",
+    "int|", "int8|", "int16|", "int32|", "int64|", "uint|",
+    "uint8|", "uint16|", "uint32|", "uint64|", "float32|",
+    "float64|", "complex64|", "complex128|", "string|", "bool|",
+    "byte|", "rune|", "error|", "true|", "false|", "nil|",
+    NULL};
+char *Rust_HL_keywords[] = { // rust
+    "as", "async", "await", "break", "const", "continue", "crate",
+    "dyn", "else", "enum", "extern", "fn", "for", "if", "impl",
+    "in", "let", "loop", "match", "mod", "move", "mut", "pub",
+    "ref", "return", "self", "Self", "static", "struct", "super",
+    "trait", "type", "unsafe", "use", "where", "while",
+    "bool|", "char|", "str|", "i8|", "i16|", "i32|", "i64|",
+    "i128|", "isize|", "u8|", "u16|", "u32|", "u64|", "u128|",
+    "usize|", "f32|", "f64|", "true|", "false|",
+    NULL};
+char *Java_HL_keywords[] = { // java
+    "abstract", "assert", "break", "case", "catch", "class",
+    "continue", "default", "do", "else", "enum", "extends",
+    "final", "finally", "for", "goto", "if", "implements",
+    "import", "instanceof", "interface", "native", "new", "package",
+    "private", "protected", "public", "return", "static",
+    "strictfp", "super", "switch", "synchronized", "this", "throw",
+    "throws", "transient", "try", "void", "volatile", "while",
+    "int|", "long|", "double|", "float|", "char|", "short|",
+    "byte|", "boolean|", "true|", "false|", "null|",
+    "String|", "Object|",
+    NULL};
+char *Bash_HL_keywords[] = { // bash
+    "if", "then", "else", "elif", "fi", "for", "while", "do",
+    "done", "case", "esac", "function", "select", "until",
+    "break", "continue", "return", "exit", "in",
+    "echo|", "read|", "local|", "export|", "source|", "alias|",
+    "unset|", "shift|", "exec|",
+    NULL};
+char *YAML_HL_keywords[] = { // yaml
+    "true|", "false|", "null|", "yes|", "no|", "on|", "off|",
+    NULL};
+char *JSON_HL_keywords[] = { // json
+    "true|", "false|", "null|",
+    NULL};
+char *Makefile_HL_keywords[] = { // makefile
+    "ifeq", "ifneq", "ifdef", "ifndef", "else", "endif",
+    "include", "define", "endef", "override", "export", "unexport",
+    "vpath",
+    ".PHONY|", ".DEFAULT|", ".SUFFIXES|", ".DELETE_ON_ERROR|",
+    NULL};
+char *Docker_HL_keywords[] = { // dockerfile
+    "FROM", "RUN", "CMD", "LABEL", "EXPOSE", "ENV", "ADD", "COPY",
+    "ENTRYPOINT", "VOLUME", "USER", "WORKDIR", "ARG", "ONBUILD",
+    "STOPSIGNAL", "HEALTHCHECK", "SHELL",
+    "AS|",
+    NULL};
+char *Gitignore_HL_keywords[] = {NULL}; // gitignore (no keywords but added for detecting in terminal)
+
 struct editorSyntax HLDB[] = {
     {"c",
-     C_HL_extensions,
-     C_HL_keywords,
+     C_HL_extensions, C_HL_keywords,
      "//", "/*", "*/",
      HL_HIGHLIGHT_NUMBERS | HL_HIGHLIGHT_STRINGS},
+
+    {"python",
+     Python_HL_extensions, Python_HL_keywords,
+     "#", NULL, NULL,
+     HL_HIGHLIGHT_NUMBERS | HL_HIGHLIGHT_STRINGS},
+
+    {"javascript",
+     JS_HL_extensions, JS_HL_keywords,
+     "//", "/*", "*/",
+     HL_HIGHLIGHT_NUMBERS | HL_HIGHLIGHT_STRINGS},
+
+    {"go",
+     Go_HL_extensions, Go_HL_keywords,
+     "//", "/*", "*/",
+     HL_HIGHLIGHT_NUMBERS | HL_HIGHLIGHT_STRINGS},
+
+    {"rust",
+     Rust_HL_extensions, Rust_HL_keywords,
+     "//", "/*", "*/",
+     HL_HIGHLIGHT_NUMBERS | HL_HIGHLIGHT_STRINGS},
+
+    {"java",
+     Java_HL_extensions, Java_HL_keywords,
+     "//", "/*", "*/",
+     HL_HIGHLIGHT_NUMBERS | HL_HIGHLIGHT_STRINGS},
+
+    {"bash",
+     Bash_HL_extensions, Bash_HL_keywords,
+     "#", NULL, NULL,
+     HL_HIGHLIGHT_NUMBERS | HL_HIGHLIGHT_STRINGS},
+
+    {"yaml",
+     YAML_HL_extensions, YAML_HL_keywords,
+     "#", NULL, NULL,
+     HL_HIGHLIGHT_NUMBERS | HL_HIGHLIGHT_STRINGS},
+
+    {"json",
+     JSON_HL_extensions, JSON_HL_keywords,
+     NULL, NULL, NULL, /* JSON has no comments */
+     HL_HIGHLIGHT_NUMBERS | HL_HIGHLIGHT_STRINGS},
+
+    {"makefile",
+     Makefile_HL_extensions, Makefile_HL_keywords,
+     "#", NULL, NULL,
+     HL_HIGHLIGHT_NUMBERS | HL_HIGHLIGHT_STRINGS},
+
+    {"dockerfile",
+     Docker_HL_extensions, Docker_HL_keywords,
+     "#", NULL, NULL,
+     HL_HIGHLIGHT_NUMBERS | HL_HIGHLIGHT_STRINGS},
+
+    {"config",
+     Gitignore_HL_extensions, Gitignore_HL_keywords,
+     "#", NULL, NULL,
+     0},
 };
 
 #define HLDB_ENTRIES (sizeof(HLDB) / sizeof(HLDB[0]))
