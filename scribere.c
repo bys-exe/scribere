@@ -99,6 +99,7 @@ struct editorConfig
     char *filename;
     char statusmsg[80];
     time_t statusmsg_time; // cooldown before status msg disappears
+    int msg_is_permanent;  // for a permanent message in status bar
     struct editorSyntax *syntax;
     struct termios orig_termios;
     UndoAction undo_stack[UNDO_STACK_SIZE];
@@ -253,7 +254,7 @@ struct editorSyntax HLDB[] = {
 
     {"json",
      JSON_HL_extensions, JSON_HL_keywords,
-     NULL, NULL, NULL, /* JSON has no comments */
+     NULL, NULL, NULL,
      HL_HIGHLIGHT_NUMBERS | HL_HIGHLIGHT_STRINGS},
 
     {"makefile",
@@ -1065,7 +1066,7 @@ void editorDrawRows(struct abuf *ab)
             if (E.numrows == 0 && y == E.screenrows / 3)
             {
                 char welcome[80];
-                int welcomelen = snprintf(welcome, sizeof(welcome), "Scribere editor -- v%s", SCRIBERE_VERSION); // welcome text
+                int welcomelen = snprintf(welcome, sizeof(welcome), "Welcome to Scribere editor! Look at the bottom for commands :D"); // welcome text
                 if (welcomelen > E.screencols)
                     welcomelen = E.screencols;                 // shrink welcome text if screen size is not big enough
                 int padding = (E.screencols - welcomelen) / 2; // this is how to get the centre value to centre text
@@ -1170,11 +1171,30 @@ void editorDrawStatusBar(struct abuf *ab)
 void editorDrawMessageBar(struct abuf *ab)
 {
     abAppend(ab, "\x1b[K", 3); // clears message bar
-    int msglen = strlen(E.statusmsg);
+    if (E.msg_is_permanent)    // permanent message
+    {
+        int msglen = strlen(E.statusmsg);
+        if (msglen > E.screencols)
+            msglen = E.screencols;
+        abAppend(ab, E.statusmsg, msglen);
+        return;
+    }
+
+    int msglen = strlen(E.statusmsg); // temporary message (5 seconds)
     if (msglen > E.screencols)
         msglen = E.screencols;
     if (msglen && time(NULL) - E.statusmsg_time < 5)
+    {
         abAppend(ab, E.statusmsg, msglen);
+    }
+    else
+    {
+        const char *hint = "HELP: Ctrl-Q = quit | Ctrl-S = save | Ctrl-F = find | Ctrl-Z = undo";
+        int hintlen = strlen(hint);
+        if (hintlen > E.screencols)
+            hintlen = E.screencols;
+        abAppend(ab, hint, hintlen);
+    }
 }
 void editorRefreshScreen() // clearing the screen (2 represents clearing the whole screen in below line)
 {
@@ -1194,11 +1214,21 @@ void editorRefreshScreen() // clearing the screen (2 represents clearing the who
 }
 void editorSetStatusMessage(const char *fmt, ...)
 {
+    E.msg_is_permanent = 0;
     va_list ap;
     va_start(ap, fmt);
     vsnprintf(E.statusmsg, sizeof(E.statusmsg), fmt, ap);
     va_end(ap);
     E.statusmsg_time = time(NULL);
+}
+void editorSetPermanentMessage(const char *fmt, ...)
+{
+    va_list ap;
+    va_start(ap, fmt);
+    vsnprintf(E.statusmsg, sizeof(E.statusmsg), fmt, ap);
+    va_end(ap);
+    E.statusmsg_time = time(NULL);
+    E.msg_is_permanent = 1;
 }
 // input
 
@@ -1390,6 +1420,7 @@ void initEditor()
     E.filename = NULL; // so that its empty when no file is open
     E.statusmsg[0] = '\0';
     E.statusmsg_time = 0;
+    E.msg_is_permanent = 0;
     if (getWindowSize(&E.screenrows, &E.screencols) == -1) // error handling
         die("getWindowSize");
     E.screenrows -= 2;                      // no of lines to leave for displaying status bar
@@ -1405,7 +1436,7 @@ int main(int argc, char *argv[])
     {
         editorOpen(argv[1]);
     }
-    editorSetStatusMessage("HELP: Ctrl-Q = quit | Ctrl-S = save | Ctrl-F = find | Ctrl-Z = undo");
+    editorSetPermanentMessage("HELP: Ctrl-Q = quit | Ctrl-S = save | Ctrl-F = find | Ctrl-Z = undo");
     while (1)
     {
         editorRefreshScreen();

@@ -9,9 +9,11 @@
 
 It is a text editor i made using the kilo guide and i am currently adding my own features to it.
 
-It is made using c so it is very lightweight (currently ~35kb)
+It is made using c so it is very lightweight (currently ~41kb)
 
 The syntax highlighting currently only supports c language, more soon.
+
+Fun fact: Scribere means *"to write"* in latin
 
 
 ## Features
@@ -37,6 +39,7 @@ The syntax highlighting currently only supports c language, more soon.
 
 ![screenshot-1](./media/screenshot-1.png)
 ![screenshot-2](./media/screenshot-2.png)
+![screenshot-2](./media/screenshot-3.png)
 \*The terminal might look different from screenshots because i modified the look of my powershell terminal.\*
 
 ## References
