@@ -2,37 +2,29 @@
 
 ## <div align='center'>Scribere</div>
 
-<div align='center'> A terminal code editor which is <em>fast</em> and <em>lightweight</em></div>
+<div align='center'> A terminal code editor that is simple and lightweight</div>
 
 
 ## Overview
 
-It is a text editor i made using the kilo guide and i am currently adding my own features to it.
+Code editor similar to vim or nano but made by me.
 
-It is made using c so it is very lightweight (currently ~55kb)
+It is made using c so the filesize is very less (currently ~55kb)
+
+It is made using the kilo guide but with tons of more features.
 
 Fun fact: Scribere means *"to write"* in latin
 
 
 ## Features
 
-- You can undo your changes using Ctrl-Z.
-- You can find text within the file using Ctrl-F.
+- You can undo your changes.
+- You can find text within the file.
 - Warning system which warns if you have any unsaved changes.
-- <b>Syntax highlighting</b> and filetype detection so it looks like a code editor. 
-- Currently filetype detection and syntax highlighting only supports the following filetypes:- 
+- <b>Syntax highlighting</b> and filetype detection. 
+- Currently syntax highlighting and filetype detection only supports the following filetypes:- 
   C, Python, Javascript, Go, Rust, Java, Bash, Yaml, Json, Makefile, Dockerfile, Gitignore
-  (Create an Issue if you need any other language)
-- Copy and paste things inside the terminal as you like but u can only copy and paste within the terminal.
-
-
-## Getting started
-
-\*Work in progress\* but if you want to try it, fork the repository and run `./scribere` in the location of the directory for creating an empty file and `./scribere "file-location"` for modifying an existing file.
-
-## Goals
-
-- [ ] Allow us to copy and paste things into the terminal
+- Copy and paste things inside the terminal as you like but u can only copy and paste things within the terminal.
 
 ## Images
 
@@ -40,6 +32,43 @@ Fun fact: Scribere means *"to write"* in latin
 ![screenshot-2](./media/screenshot-2.png)
 ![screenshot-2](./media/screenshot-3.png)
 \*The terminal might look different from screenshots because i modified the look of my powershell terminal.\*
+
+
+## Getting started
+
+Works in Linux / MacOS / Windows (Only WSL)
+I have already compiled and built the app but if you want to the build it yourself, do the following:-
+
+- ### Clone
+  `git clone https://github.com/bys-exe/scribere.git`
+  `cd scribere`
+  
+- ### Build
+  run `make` in the directory
+  or
+  `gcc -o scribere scribere.c -Wall -Wextra` 
+  
+  (<em>-o is to set the name of the output file and -Wall and -Wextra are used to enable all warnings</em>)
+
+- ### Run
+  type `./scribere filename.c` for opening a file
+  or
+  type `./scribere` for opening an empty file
+
+## Keybinds
+
+| Keybind | Action |
+| :---: | :---: |
+| Ctrl-S | Save |
+| Ctrl-Q | Quit* |
+| Ctrl-F | Find |
+| Ctrl-Z | Undo |
+| Ctrl-K | Cut line |
+| Ctrl-U | Paste |
+| Arrow Keys | Move cursor |
+| Page Up/Down | Scroll |
+
+  *You have to press the keybind three times to quit with unsaved changes
 
 ## References
 
