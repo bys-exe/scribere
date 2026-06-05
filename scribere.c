@@ -97,13 +97,16 @@ struct editorConfig
     erow *row;
     int dirty; // to find any unsaved changes (dirty flags)
     char *filename;
-    char statusmsg[80];
+    char statusmsg[200];
     time_t statusmsg_time; // cooldown before status msg disappears
     int msg_is_permanent;  // for a permanent message in status bar
     struct editorSyntax *syntax;
     struct termios orig_termios;
     UndoAction undo_stack[UNDO_STACK_SIZE];
     int undo_top;
+    char **clipboard;
+    int clipboard_numrows;
+    int cutting;
 };
 struct editorConfig E;
 
@@ -1189,7 +1192,7 @@ void editorDrawMessageBar(struct abuf *ab)
     }
     else
     {
-        const char *hint = "HELP: Ctrl-Q = quit | Ctrl-S = save | Ctrl-F = find | Ctrl-Z = undo";
+        const char *hint = "HELP: Ctrl-Q = quit | Ctrl-S = save | Ctrl-F = find | Ctrl-Z = undo | Ctrl-K = cut | Ctrl-U = paste";
         int hintlen = strlen(hint);
         if (hintlen > E.screencols)
             hintlen = E.screencols;
@@ -1327,11 +1330,47 @@ void editorMoveCursor(int key)
         E.cx = rowlen;
     }
 }
-
+void editorCutRow()
+{
+    if (!E.cutting) // if starting fresh, empty the clipboard
+    {
+        for (int i = 0; i < E.clipboard_numrows; i++)
+            free(E.clipboard[i]);
+        free(E.clipboard);
+        E.clipboard = NULL;
+        E.clipboard_numrows = 0;
+    }
+    E.clipboard = realloc(E.clipboard, sizeof(char *) * (E.clipboard_numrows + 1)); // grow the array by one slot
+    erow *row = &E.row[E.cy];                                                       // copy this line's text into the new slot
+    E.clipboard[E.clipboard_numrows] = malloc(row->size + 1);
+    memcpy(E.clipboard[E.clipboard_numrows], row->chars, row->size);
+    E.clipboard[E.clipboard_numrows][row->size] = '\0';
+    E.clipboard_numrows++;
+    editorDelRow(E.cy); // delete the row from the file
+    if (E.cy >= E.numrows && E.cy > 0)
+        E.cy--;
+    E.cutting = 1; // inform that we are in a cut sequence right now
+    editorSetStatusMessage("%d line(s) in clipboard", E.clipboard_numrows);
+}
+void editorPasteRows()
+{
+    if (!E.clipboard || E.clipboard_numrows == 0)
+    {
+        editorSetStatusMessage("Clipboard is empty.");
+        return;
+    }
+    for (int i = 0; i < E.clipboard_numrows; i++) // insert each clipboard line above the current row
+        editorInsertRow(E.cy + 1, E.clipboard[i], strlen(E.clipboard[i]));
+    E.cy += E.clipboard_numrows; // move cursor to the last pasted line
+    E.cx = 0;
+    editorSetStatusMessage("%d line(s) pasted", E.clipboard_numrows);
+}
 void editorProcessKeypress() // reads the keypress then handles it
 {
     static int quit_times = SCRIBERE_QUIT_TIMES;
     int c = editorReadKey();
+    if (c != CTRL_KEY('k')) // reset cut sequence on any non ctrl-k keypresses
+        E.cutting = 0;
     switch (c)
     {
     case '\r':
@@ -1353,6 +1392,12 @@ void editorProcessKeypress() // reads the keypress then handles it
         break;
     case CTRL_KEY('z'):
         editorUndo();
+        break;
+    case CTRL_KEY('k'):
+        editorCutRow();
+        break;
+    case CTRL_KEY('u'):
+        editorPasteRows();
         break;
     case HOME_KEY:
         E.cx = 0;
@@ -1426,6 +1471,9 @@ void initEditor()
     E.screenrows -= 2;                      // no of lines to leave for displaying status bar
     E.screencols -= SCRIBERE_LINENUM_WIDTH; // no of lines to leave for no indexing
     E.syntax = NULL;
+    E.clipboard = NULL;
+    E.clipboard_numrows = 0;
+    E.cutting = 0;
 }
 
 int main(int argc, char *argv[])
@@ -1436,7 +1484,7 @@ int main(int argc, char *argv[])
     {
         editorOpen(argv[1]);
     }
-    editorSetPermanentMessage("HELP: Ctrl-Q = quit | Ctrl-S = save | Ctrl-F = find | Ctrl-Z = undo");
+    editorSetPermanentMessage("HELP: Ctrl-Q = quit | Ctrl-S = save | Ctrl-F = find | Ctrl-Z = undo | Ctrl-K = cut | Ctrl-U = paste");
     while (1)
     {
         editorRefreshScreen();

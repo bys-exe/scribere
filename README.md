@@ -9,9 +9,7 @@
 
 It is a text editor i made using the kilo guide and i am currently adding my own features to it.
 
-It is made using c so it is very lightweight (currently ~41kb)
-
-The syntax highlighting currently only supports c language, more soon.
+It is made using c so it is very lightweight (currently ~55kb)
 
 Fun fact: Scribere means *"to write"* in latin
 
@@ -25,6 +23,7 @@ Fun fact: Scribere means *"to write"* in latin
 - Currently filetype detection and syntax highlighting only supports the following filetypes:- 
   C, Python, Javascript, Go, Rust, Java, Bash, Yaml, Json, Makefile, Dockerfile, Gitignore
   (Create an Issue if you need any other language)
+- Copy and paste things inside the terminal as you like but u can only copy and paste within the terminal.
 
 
 ## Getting started
